@@ -1,0 +1,392 @@
+import numpy as np
+import pandas as pd
+import nltk
+import re
+import pandas as pd 
+import numpy as np
+from sklearn.feature_extraction.text import CountVectorizer
+import time
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import SnowballStemmer
+from nltk.tokenize import TweetTokenizer
+from nltk.corpus import stopwords
+import string
+from nltk.tokenize import word_tokenize
+
+##adding list of stopwords and punctuations.
+from nltk.corpus import stopwords
+import string
+
+nltk.download('stopwords')
+stops=set(stopwords.words('english'))
+punct=list(string.punctuation)
+stops.update(punct)
+
+traindata=pd.read_csv('twitter_x_y_train.csv')
+testdata=pd.read_csv('twitter_x_test.csv')
+
+x_t=traindata['text']
+x_test_data=testdata['text']
+y_train_data=traindata['airline_sentiment']
+
+stops = set(stopwords.words('english'))
+punctuations = list(string.punctuation)
+stops.update(punctuations)
+
+def  Remove_stop_words(x):
+    l=len(x)
+    #print(l)
+    y=[]
+   
+    for i in range(l):
+        if x[i] not in stops :
+            y.append(x[i])
+    #print(len(y))
+    return y
+
+def lower_casing(words): 
+    text=[]
+    for i in words :
+        text.append(i.lower())
+    return text
+
+
+def adding(b):
+    
+    txt=''
+    for i in range(len(b)):
+        txt+=' '+b[i]
+    textdocument.append(txt)
+
+text_documents = ["".join(x_t[i]) for i in range(len(x_t))]
+
+def prep(b):
+    z=word_tokenize(b)
+    #print(z)
+    for i in range(2):
+        z.remove(z[0])
+    #print(z)
+    z=lower_casing(z)
+    z=Remove_stop_words(z)
+    return z
+
+textdocument=[]
+for i in range(len(text_documents)):
+    b=prep(text_documents[i])
+    adding(b)
+
+df=pd.DataFrame(textdocument)
+x_train_data=df[0]
+
+from sklearn import model_selection
+xtrain,xtest,ytrain,ytest=model_selection.train_test_split(x_train_data,y_train_data,random_state=0)
+
+##now we aim to remove # ,@ and other numeric words
+
+def remove_pattern(input_txt, pattern):
+    r = re.findall(pattern, input_txt)
+    for i in r:
+        input_txt = re.sub(i, '', input_txt)
+        
+    return input_txt
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+tf_idf=TfidfVectorizer(max_features=3000,ngram_range=(1,2),stop_words=stops,analyzer='word', max_df = 0.8, lowercase = True, use_idf = True, smooth_idf = True)
+
+train_features=tf_idf.fit_transform(xtrain,ytrain)
+test_features=tf_idf.transform(xtest)
+
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import MultinomialNB
+
+##doing for svm classifier
+svc=SVC()
+svc.fit(train_features,ytrain)
+Ac_svc = svc.score(test_features,ytest)
+
+#doing for random-forest-classifier
+rfc=RandomForestClassifier()
+rfc.fit(train_features,ytrain)
+Ac_rfc = rfc.score(test_features,ytest)
+
+#doing for MultinomialNaiveBayes
+nb=MultinomialNB()
+nb.fit(train_features,ytrain)
+Ac_nb = nb.score(test_features,ytest)
+
+from sklearn.linear_model import LogisticRegression
+clf=LogisticRegression(C=1)
+clf.fit(train_features,ytrain)
+Ac_LG = clf.score(test_features,ytest)
+
+from sklearn.model_selection import GridSearchCV
+clf = LogisticRegression()
+grid = {'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000] }
+abc = GridSearchCV(clf, grid) 
+abc.fit(train_features, ytrain)
+
+print(abc.best_estimator_)
+print(abc.best_score_)
+
+#using logistic regression paramter finally
+x_test_data1=tf_idf.transform(x_test_data)
+y_predict=nb.predict(x_test_data1)
+np.savetxt('Predictions-Project.csv',y_predict,fmt='%s')
+
+
+x=pd.DataFrame(y_predict)
+
+sizex=0
+sizey=0
+sizez=0
+
+total=len(y_train_data)
+for i in range(total):
+    if y_train_data[i]=='positive':
+        sizex+=1
+    elif y_train_data[i]=='negative':
+        sizey+=1
+    else:
+        sizez+=1
+        
+x_test_data1=tf_idf.transform(x_test_data.head(1))
+y_predict=nb.predict(x_test_data1)
+b='which represent a '+ y_predict[0] +' feed back'
+print(b)
+
+from tkinter import *
+from threading import Thread
+import pyglet
+def playsound(command):
+    root = Tk()
+    app = Frame(root)
+    app.pack(side='bottom')
+
+    player = pyglet.media.Player()
+    music_file = pyglet.media.load(command)
+
+    def startPlaying():
+        player.queue(music_file)
+        player.play()
+        pyglet.app.run()
+
+    def playSound():
+        global sound_thread 
+        sound_thread = Thread(target=startPlaying)
+        sound_thread.start()
+
+    button1 = Button(app, text="Listen Your Response", command=playSound)
+    button1.pack()
+
+    root.mainloop()
+    pyglet.app.exit()
+
+
+from gtts import gTTS
+import speech_recognition as sr
+import os
+import re
+import webbrowser
+import smtplib
+import requests
+from weather import Weather
+import pyglet
+
+def talkToMe(audio):
+    "speaks audio passed as argument"
+
+    print(audio)
+    for line in audio.splitlines():
+        os.system("say " + audio)
+
+    #  use the system's inbuilt say command instead of mpg123
+    #  text_to_speech = gTTS(text=audio, lang='en')
+    #  text_to_speech.save('audio.mp3')
+    #  os.system('mpg123 audio.mp3')
+
+
+def myCommand():
+    "listens for commands"
+
+    r = sr.Recognizer()
+
+    with sr.Microphone() as source:
+        print('Ready...')
+        r.pause_threshold = 1
+        r.adjust_for_ambient_noise(source, duration=1)
+        audio = r.listen(source)
+
+    try:
+        command = r.recognize_google(audio).lower()
+        z='You said: ' + command + '\n'
+        print(z)
+        
+        language = 'en'
+       
+
+      
+        list_of_predifined_queries=['open reddit','open website','what\'s up','weather forecast in','ok tell me a joke','who is your owner','how are you']
+        
+        if command not in list_of_predifined_queries:
+            x.drop(x.index[0],inplace=True)
+            x_test_data.loc[0]=command
+            x_test_data1=tf_idf.transform(x_test_data.head(1)) 
+            y_predict=nb.predict(x_test_data1)
+            
+            z=' This will consider  as  a  '+ y_predict[0] +' feed back!'
+
+            myobj = gTTS(text=z, lang=language, slow=False) 
+            myobj.save("currentvoice.mp3")
+
+            so='currentvoice.mp3'
+            playsound(so)
+        else:
+            pass
+        
+
+    #loop back to continue to listen for commands if unrecognizable speech is received
+    except sr.UnknownValueError:
+        print('Your last command couldn\'t be heard')
+        command = myCommand();
+
+    return command
+
+
+def assistant(command):
+    "if statements for executing commands"
+
+    if 'open reddit' in command:
+        reg_ex = re.search('open reddit (.*)', command)
+        url = 'https://www.reddit.com/'
+        if reg_ex:
+            subreddit = reg_ex.group(1)
+            url = url + 'r/' + subreddit
+        webbrowser.open(url)
+        print('Done!')
+
+    elif 'open website' in command:
+        reg_ex = re.search('open website (.+)', command)
+        if reg_ex:
+            domain = reg_ex.group(1)
+            url = 'https://www.' + domain
+            webbrowser.open(url)
+            print('Done!')
+        else:
+            pass
+
+    elif 'what\'s up' in command:
+        talkToMe('Just doing my thing')
+        
+    elif 'how are you' in command:
+        talkToMe('I am fine !')
+    
+    elif 'who is your owner' in command:
+        talkToMe('My owner name is Mr. Priyanshu.')
+    
+    elif 'where is ishita' in command:
+        talkToMe('she is in digital communication  lab')
+        
+        
+    elif 'tell me something about you' in command:
+        talkToMe('I am created for the hackathon competition which is organise by hackcbs .')
+        
+    elif 'ok tell me a joke' in command:
+        res = requests.get(
+                'https://icanhazdadjoke.com/',
+                headers={"Accept":"application/json"}
+                )
+        if res.status_code == requests.codes.ok:
+            talkToMe(str(res.json()['joke']))
+        else:
+            talkToMe('oops!I ran out of jokes')
+
+    elif 'current weather in' in command:
+        reg_ex = re.search('current weather in (.*)', command)
+        if reg_ex:
+            city = reg_ex.group(1)
+            weather = Weather()
+            location = weather.lookup_by_location(city)
+            condition = location.condition()
+            talkToMe('The Current weather in %s is %s The tempeture is %.1f degree' % (city, condition.text(), (int(condition.temp())-32)/1.8))
+
+    elif 'weather forecast in' in command:
+        reg_ex = re.search('weather forecast in (.*)', command)
+        if reg_ex:
+            city = reg_ex.group(1)
+            weather = Weather()
+            location = weather.lookup_by_location(city)
+            forecasts = location.forecast()
+            print(forecasts)
+            for forecast in forecasts:
+                talkToMe('On %s will it %s. The maximum temperture will be %.1f degree.'
+                         'The lowest temperature will be %.1f degrees.' % (forecast.date, forecast.text, (int(forecast.high)-32)/1.8, (int(forecast.low)-32)/1.8))
+
+
+    elif 'email' in command:
+        talkToMe('Who is the recipient?')
+        recipient = myCommand()
+
+        if 'ishita' in recipient:
+            talkToMe('What should I say?')
+            content = myCommand()
+
+            #init gmail SMTP
+            mail = smtplib.SMTP('smtp.gmail.com', 587)
+
+            #identify to server
+            mail.ehlo()
+
+            #encrypt session
+            mail.starttls()
+
+            #login
+            mail.login('username', 'password')
+
+            #send message
+            mail.sendmail('John Fisher', 'JARVIS2.0@protonmail.com', content)
+
+            #end mail connection
+            mail.close()
+
+            talkToMe('Email sent.')
+
+        else:
+            talkToMe('I don\'t know what you mean!')
+
+
+talkToMe('I am ready for your command')
+
+#loop to continue executing multiple commands
+while True:
+    assistant(myCommand())
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+sizes=[sizex,sizey,sizez]                                    # to give the % size and partitions
+
+plt.axis("equal")                                  # to make graph eual form all side
+
+labels=['Positive','Negative','Neutral']          # to give the labesl to sections
+
+colors=['yellow','red','green']          # to fill diff colors
+
+explode=[0.05,0.03,0.06]                              # to highlight a section , (couterclock) used to rotate anticlock wise
+
+plt.title("Sentiment Score",fontsize=30)                 # to give the title , (autopct) used for give the data in sections
+
+plt.pie(sizes,colors=colors,labels=labels,explode=explode,autopct='%.1f%%',startangle=30,counterclock=False)
+
+
+plt.show()
+algorithms=['SVC','LG','MNB','RFC']
+Acuracy=[Ac_svc,Ac_LG,Ac_nb,Ac_rfc]
+plt.ylabel('Accuracy',color='black',fontsize=25) 
+plt.xlabel('Algorithms',color='black',fontsize=25)
+
+plt.title('Sentiment Analysis',color='black',fontsize=30)   
+#plt.plot(x['rollno'],x['cgpa'],color='blue')
+plt.bar(algorithms,Acuracy,color=['red','green','yellow','blue'],alpha=1)
+plt.show()
